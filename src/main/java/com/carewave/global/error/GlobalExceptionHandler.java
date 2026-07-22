@@ -34,6 +34,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
         return ResponseEntity
                 .internalServerError()
-                .body(ApiResponse.failure("COMMON_500", "서버 내부 오류가 발생했습니다.", null));
+                .body(ApiResponse.failure("COMMON_500", "An internal server error occurred.", null));
     }
 }
