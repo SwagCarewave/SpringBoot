@@ -1,5 +1,6 @@
 package com.carewave.domain.room.service;
 
+import com.carewave.domain.device.repository.DeviceRepository;
 import com.carewave.domain.room.dto.RoomCreateRequest;
 import com.carewave.domain.room.dto.RoomResponse;
 import com.carewave.domain.room.dto.RoomStatusUpdateRequest;
@@ -22,6 +23,7 @@ import java.util.List;
 public class RoomService {
 
     private final RoomRepository roomRepository;
+    private final DeviceRepository deviceRepository;
 
     @Transactional
     public RoomResponse createRoom(RoomCreateRequest request) {
@@ -37,7 +39,10 @@ public class RoomService {
         try {
             Room savedRoom = roomRepository.saveAndFlush(room);
 
-            return RoomResponse.from(savedRoom);
+            return RoomResponse.from(
+                    savedRoom,
+                    deviceRepository.countByRoomId(savedRoom.getId())
+            );
         } catch (DataIntegrityViolationException e) {
             throw new CustomException(RoomErrorCode.DUPLICATE_ROOM_NUMBER);
         }
@@ -55,14 +60,20 @@ public class RoomService {
         }
 
         return rooms.stream()
-                .map(RoomResponse::from)
+                .map(room -> RoomResponse.from(
+                        room,
+                        deviceRepository.countByRoomId(room.getId())
+                ))
                 .toList();
     }
 
     public RoomResponse getRoom(Long roomId) {
         Room room = findRoom(roomId);
 
-        return RoomResponse.from(room);
+        return RoomResponse.from(
+                room,
+                deviceRepository.countByRoomId(room.getId())
+        );
     }
 
     @Transactional
@@ -86,7 +97,10 @@ public class RoomService {
             );
             roomRepository.flush();
 
-            return RoomResponse.from(room);
+            return RoomResponse.from(
+                    room,
+                    deviceRepository.countByRoomId(room.getId())
+            );
         } catch (DataIntegrityViolationException e) {
             throw new CustomException(RoomErrorCode.DUPLICATE_ROOM_NUMBER);
         }
@@ -101,7 +115,10 @@ public class RoomService {
 
         room.updateStatus(request.getStatus());
 
-        return RoomResponse.from(room);
+        return RoomResponse.from(
+                room,
+                deviceRepository.countByRoomId(room.getId())
+        );
     }
 
     private Room findRoom(Long roomId) {
