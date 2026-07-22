@@ -19,13 +19,16 @@ public class RoomResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public static RoomResponse from(Room room) {
+    public static RoomResponse from(
+            Room room,
+            long assignedDeviceCount
+    ) {
         return RoomResponse.builder()
                 .roomId(room.getId())
                 .roomNumber(room.getRoomNumber())
                 .description(room.getDescription())
                 .status(room.getStatus())
-                .assignedDeviceCount(0)
+                .assignedDeviceCount((int) assignedDeviceCount)
                 .createdAt(room.getCreatedAt())
                 .updatedAt(room.getUpdatedAt())
                 .build();

@@ -1,5 +1,7 @@
 package com.carewave.domain.room.controller;
 
+import com.carewave.domain.device.dto.DeviceResponse;
+import com.carewave.domain.device.service.DeviceService;
 import com.carewave.domain.room.dto.RoomCreateRequest;
 import com.carewave.domain.room.dto.RoomResponse;
 import com.carewave.domain.room.dto.RoomStatusUpdateRequest;
@@ -18,6 +20,7 @@ import java.util.List;
 public class RoomController {
 
     private final RoomService roomService;
+    private final DeviceService deviceService;
 
     @PostMapping
     public ApiResponse<RoomResponse> createRoom(
@@ -66,6 +69,15 @@ public class RoomController {
     ) {
         return ApiResponse.success(
                 roomService.updateRoomStatus(roomId, request)
+        );
+    }
+
+    @GetMapping("/{roomId}/devices")
+    public ApiResponse<List<DeviceResponse>> getRoomDevices(
+            @PathVariable Long roomId
+    ) {
+        return ApiResponse.success(
+                deviceService.getDevicesByRoom(roomId)
         );
     }
 }
