@@ -18,7 +18,7 @@ public class ApiResponse<T> {
         return ApiResponse.<T>builder()
                 .isSuccess(true)
                 .code("COMMON_200")
-                .message("요청에 성공했습니다.")
+                .message("Request succeeded.")
                 .result(result)
                 .build();
     }
@@ -27,7 +27,7 @@ public class ApiResponse<T> {
         return ApiResponse.<Void>builder()
                 .isSuccess(true)
                 .code("COMMON_200")
-                .message("요청에 성공했습니다.")
+                .message("Request succeeded.")
                 .build();
     }
 
