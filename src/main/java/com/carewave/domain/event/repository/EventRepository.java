@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import com.carewave.domain.event.entity.EventType;
 
@@ -59,5 +60,11 @@ public interface EventRepository
     Page<Event> findByRoomIdOrderByOccurredAtDesc(
             Long roomId,
             Pageable pageable
+    );
+
+    List<Event> findAllByRoomIdAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(
+            Long roomId,
+            OffsetDateTime startAt,
+            OffsetDateTime endExclusive
     );
 }
