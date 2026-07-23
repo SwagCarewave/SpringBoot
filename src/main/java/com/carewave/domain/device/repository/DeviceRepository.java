@@ -18,6 +18,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     List<Device> findAllByStatusOrderByDeviceCodeAsc(
             DeviceStatus status
     );
+    long countByStatus(DeviceStatus status);
 
     List<Device> findAllByOrderByDeviceCodeAsc();
 
