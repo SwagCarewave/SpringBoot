@@ -1,36 +1,103 @@
 package com.carewave.domain.event.entity;
 
 import com.carewave.common.BaseEntity;
+import com.carewave.domain.room.entity.Room;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
 
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor
-@Builder
-@Table(name = "events")
+@Table(
+        name = "events",
+        indexes = {
+                @Index(
+                        name = "idx_event_occurred_at",
+                        columnList = "occurred_at"
+                ),
+                @Index(
+                        name = "idx_event_type_status",
+                        columnList = "event_type,status"
+                ),
+                @Index(
+                        name = "idx_event_room_id",
+                        columnList = "room_id"
+                )
+        }
+)
 public class Event extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 예: 낙상 감지, 재실 감지, 공실 감지
-    @Column(nullable = false, length = 50)
-    private String eventType;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "room_id", nullable = false)
+    private Room room;
 
-    // FastAPI에서 넘어온 실제 감지 시간
-    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(
+            name = "event_type",
+            nullable = false,
+            length = 30
+    )
+    private EventType eventType;
+
+    @Column(
+            name = "occurred_at",
+            nullable = false
+    )
     private OffsetDateTime occurredAt;
 
-    // 예: 미확인, 확인완료
-    @Column(nullable = false, length = 20)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    @Column(
+            nullable = false,
+            length = 20
+    )
+    private EventStatus status;
 
-    public void updateStatus(String status) {
-        this.status = status;
+    @Column(
+            name = "evidence_summary",
+            length = 1000
+    )
+    private String evidenceSummary;
+
+    @Column(name = "confirmed_at")
+    private OffsetDateTime confirmedAt;
+
+    private Event(
+            Room room,
+            EventType eventType,
+            OffsetDateTime occurredAt,
+            String evidenceSummary
+    ) {
+        this.room = room;
+        this.eventType = eventType;
+        this.occurredAt = occurredAt;
+        this.status = EventStatus.UNCONFIRMED;
+        this.evidenceSummary = evidenceSummary;
+    }
+
+    public static Event create(
+            Room room,
+            EventType eventType,
+            OffsetDateTime occurredAt,
+            String evidenceSummary
+    ) {
+        return new Event(
+                room,
+                eventType,
+                occurredAt,
+                evidenceSummary
+        );
+    }
+
+    public void confirm(OffsetDateTime confirmedAt) {
+        this.status = EventStatus.CONFIRMED;
+        this.confirmedAt = confirmedAt;
     }
 }
