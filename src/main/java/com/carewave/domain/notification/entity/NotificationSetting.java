@@ -13,7 +13,6 @@ import lombok.NoArgsConstructor;
 public class NotificationSetting extends BaseEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(
@@ -51,6 +50,7 @@ public class NotificationSetting extends BaseEntity {
             double fallSensitivityThreshold,
             int inactivityThresholdMinutes
     ) {
+        this.id = GLOBAL_SETTING_ID;
         this.browserNotificationEnabled =
                 browserNotificationEnabled;
         this.fallSensitivityThreshold =
@@ -66,6 +66,8 @@ public class NotificationSetting extends BaseEntity {
                 30
         );
     }
+
+    public static final Long GLOBAL_SETTING_ID = 1L;
 
     public void update(
             boolean browserNotificationEnabled,

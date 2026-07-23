@@ -50,8 +50,9 @@ public class NotificationSettingUpdateRequest {
             message = "비상 연락처는 20자 이하여야 합니다."
     )
     @Pattern(
-            regexp = "^$|^[0-9-]+$",
+            regexp = "^\\s*$|^[0-9-]+$",
             message = "비상 연락처는 숫자와 하이픈(-)만 입력할 수 있습니다."
     )
     private String emergencyContactPhone;
+
 }

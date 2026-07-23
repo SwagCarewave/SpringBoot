@@ -95,11 +95,10 @@ public class NotificationSettingService {
 
     private NotificationSetting findOrCreateSetting() {
         return notificationSettingRepository
-                .findTopByOrderByIdAsc()
+                .findById(NotificationSetting.GLOBAL_SETTING_ID)
                 .orElseGet(() ->
                         notificationSettingRepository.save(
-                                NotificationSetting
-                                        .createDefault()
+                                NotificationSetting.createDefault()
                         )
                 );
     }
