@@ -2,11 +2,8 @@ package com.carewave.domain.event.repository;
 
 import com.carewave.domain.event.entity.Event;
 import com.carewave.domain.event.entity.EventStatus;
-import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -15,14 +12,19 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.Optional;
+import com.carewave.domain.event.entity.EventType;
 
-public interface EventRepository extends
-        JpaRepository<Event, Long>,
+public interface EventRepository
+        extends JpaRepository<Event, Long>,
         JpaSpecificationExecutor<Event> {
 
     long countByStatus(EventStatus status);
+
+    long countByEventTypeAndStatus(
+            EventType eventType,
+            EventStatus status
+    );
 
     @EntityGraph(attributePaths = "room")
     @Query("""
@@ -34,12 +36,6 @@ public interface EventRepository extends
             @Param("eventId") Long eventId
     );
 
-    /*
-     * UNCONFIRMED 상태인 이벤트만 CONFIRMED로 변경한다.
-     *
-     * 같은 이벤트에 동시에 여러 확인 요청이 들어와도
-     * 최초 한 요청만 1건을 수정하고, 나머지는 0건을 반환한다.
-     */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Event e
@@ -58,17 +54,10 @@ public interface EventRepository extends
             OffsetDateTime confirmedAt
     );
 
-    @Override
+    // 이번에 추가할 메서드
     @EntityGraph(attributePaths = "room")
-    Page<Event> findAll(
-            Specification<Event> specification,
+    Page<Event> findByRoomIdOrderByOccurredAtDesc(
+            Long roomId,
             Pageable pageable
-    );
-
-    @Override
-    @EntityGraph(attributePaths = "room")
-    List<Event> findAll(
-            Specification<Event> specification,
-            Sort sort
     );
 }

@@ -465,4 +465,27 @@ public class EventService {
 
         return value;
     }
+
+    public List<EventResponse> getRecentEvents(
+            Long roomId,
+            int limit
+    ) {
+        if (!roomRepository.existsById(roomId)) {
+            throw new CustomException(
+                    RoomErrorCode.ROOM_NOT_FOUND
+            );
+        }
+
+        PageRequest pageable = PageRequest.of(0, limit);
+
+        return eventRepository
+                .findByRoomIdOrderByOccurredAtDesc(
+                        roomId,
+                        pageable
+                )
+                .getContent()
+                .stream()
+                .map(EventResponse::from)
+                .toList();
+    }
 }
