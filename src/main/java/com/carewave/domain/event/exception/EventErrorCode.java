@@ -26,6 +26,24 @@ public enum EventErrorCode implements BaseErrorCode {
             HttpStatus.BAD_REQUEST,
             "EVENT_400_1",
             "시작일은 종료일보다 늦을 수 없습니다."
+    ),
+
+    EXPORT_DATE_REQUIRED(
+            HttpStatus.BAD_REQUEST,
+            "EVENT_400_2",
+            "CSV 내보내기에는 시작일과 종료일이 모두 필요합니다."
+    ),
+
+    EXPORT_DATE_RANGE_EXCEEDED(
+            HttpStatus.BAD_REQUEST,
+            "EVENT_400_3",
+            "CSV 내보내기 기간은 최대 31일까지 지정할 수 있습니다."
+    ),
+
+    EXPORT_RESULT_LIMIT_EXCEEDED(
+            HttpStatus.BAD_REQUEST,
+            "EVENT_400_4",
+            "CSV로 내보낼 수 있는 이벤트는 최대 10,000건입니다. 조회 조건을 좁혀주세요."
     );
 
     private final HttpStatus httpStatus;

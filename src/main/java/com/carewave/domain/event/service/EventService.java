@@ -27,6 +27,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -42,6 +43,13 @@ public class EventService {
             DateTimeFormatter.ofPattern(
                     "yyyy-MM-dd HH:mm:ss"
             );
+
+    /*
+     * CSV 조회 범위와 결과 수를 제한하여
+     * 대량 데이터를 한 번에 메모리에 적재하는 것을 방지한다.
+     */
+    private static final long MAX_EXPORT_DAYS = 31L;
+    private static final int MAX_EXPORT_COUNT = 10_000;
 
     private final EventRepository eventRepository;
     private final RoomRepository roomRepository;
@@ -122,21 +130,41 @@ public class EventService {
         return new UnconfirmedEventCountResponse(count);
     }
 
+    /*
+     * 이벤트 조회 후 상태를 변경하는 check-then-act 방식 대신,
+     * 상태 조건을 포함한 UPDATE를 실행한다.
+     *
+     * 동시에 여러 확인 요청이 들어와도
+     * UNCONFIRMED 상태를 먼저 변경한 한 요청만 성공한다.
+     */
     @Transactional
     public EventResponse confirmEvent(Long eventId) {
-        Event event = findEvent(eventId);
+        OffsetDateTime confirmedAt =
+                OffsetDateTime.now(KOREA_ZONE);
 
-        if (event.getStatus() == EventStatus.CONFIRMED) {
+        int updatedCount =
+                eventRepository.confirmIfUnconfirmed(
+                        eventId,
+                        EventStatus.UNCONFIRMED,
+                        EventStatus.CONFIRMED,
+                        confirmedAt
+                );
+
+        if (updatedCount == 0) {
+            if (!eventRepository.existsById(eventId)) {
+                throw new CustomException(
+                        EventErrorCode.EVENT_NOT_FOUND
+                );
+            }
+
             throw new CustomException(
                     EventErrorCode.EVENT_ALREADY_CONFIRMED
             );
         }
 
-        event.confirm(
-                OffsetDateTime.now(KOREA_ZONE)
-        );
+        Event confirmedEvent = findEvent(eventId);
 
-        return EventResponse.from(event);
+        return EventResponse.from(confirmedEvent);
     }
 
     public byte[] exportEvents(
@@ -145,7 +173,7 @@ public class EventService {
             List<EventType> eventTypes,
             EventStatus status
     ) {
-        validateDateRange(startDate, endDate);
+        validateExportRange(startDate, endDate);
 
         Specification<Event> specification =
                 createSpecification(
@@ -155,13 +183,34 @@ public class EventService {
                         status
                 );
 
-        List<Event> events = eventRepository.findAll(
-                specification,
+        /*
+         * 최대 허용 건수보다 한 건 더 조회한다.
+         *
+         * 10,001번째 데이터가 존재하면 CSV를 생성하지 않고
+         * 사용자에게 검색 조건을 좁히도록 안내한다.
+         */
+        PageRequest exportPageRequest = PageRequest.of(
+                0,
+                MAX_EXPORT_COUNT + 1,
                 Sort.by(
                         Sort.Direction.DESC,
                         "occurredAt"
                 )
         );
+
+        List<Event> events = eventRepository
+                .findAll(
+                        specification,
+                        exportPageRequest
+                )
+                .getContent();
+
+        if (events.size() > MAX_EXPORT_COUNT) {
+            throw new CustomException(
+                    EventErrorCode
+                            .EXPORT_RESULT_LIMIT_EXCEEDED
+            );
+        }
 
         StringBuilder csv = new StringBuilder();
 
@@ -207,8 +256,9 @@ public class EventService {
                             ? "확인 완료"
                             : "미확인";
 
-            csv.append(csvEscape(statusName))
-                    .append(',');
+            csv.append(
+                    csvEscape(statusName)
+            ).append(',');
 
             csv.append(
                     csvEscape(
@@ -303,6 +353,36 @@ public class EventService {
         }
     }
 
+    /*
+     * CSV는 전체 데이터 무제한 조회가 되지 않도록
+     * 시작일과 종료일을 필수로 받고 최대 31일만 허용한다.
+     */
+    private void validateExportRange(
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        if (startDate == null || endDate == null) {
+            throw new CustomException(
+                    EventErrorCode.EXPORT_DATE_REQUIRED
+            );
+        }
+
+        validateDateRange(startDate, endDate);
+
+        long exportDays =
+                ChronoUnit.DAYS.between(
+                        startDate,
+                        endDate
+                ) + 1;
+
+        if (exportDays > MAX_EXPORT_DAYS) {
+            throw new CustomException(
+                    EventErrorCode
+                            .EXPORT_DATE_RANGE_EXCEEDED
+            );
+        }
+    }
+
     private String normalizeOptional(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -323,13 +403,66 @@ public class EventService {
                 .format(CSV_DATE_TIME_FORMATTER);
     }
 
+    /*
+     * CSV 특수문자 처리와 수식 인젝션 방지를 함께 수행한다.
+     *
+     * =, +, -, @로 시작하는 값을 Excel에서 열면
+     * 수식으로 해석될 수 있으므로 앞에 작은따옴표를 붙인다.
+     */
     private String csvEscape(String value) {
         if (value == null) {
             return "";
         }
 
+        String sanitizedValue =
+                preventCsvFormulaInjection(value);
+
         return "\""
-                + value.replace("\"", "\"\"")
+                + sanitizedValue.replace(
+                "\"",
+                "\"\""
+        )
                 + "\"";
+    }
+
+    private String preventCsvFormulaInjection(
+            String value
+    ) {
+        if (value.isEmpty()) {
+            return value;
+        }
+
+        int firstNonWhitespaceIndex = 0;
+
+        while (firstNonWhitespaceIndex < value.length()
+                && Character.isWhitespace(
+                value.charAt(firstNonWhitespaceIndex)
+        )) {
+            firstNonWhitespaceIndex++;
+        }
+
+        if (firstNonWhitespaceIndex
+                >= value.length()) {
+            return value;
+        }
+
+        char firstCharacter =
+                value.charAt(firstNonWhitespaceIndex);
+
+        if (firstCharacter == '='
+                || firstCharacter == '+'
+                || firstCharacter == '-'
+                || firstCharacter == '@') {
+            return value.substring(
+                    0,
+                    firstNonWhitespaceIndex
+            )
+                    + "'"
+                    + value.substring(
+                    firstNonWhitespaceIndex
+            );
+        }
+
+        return value;
     }
 }
